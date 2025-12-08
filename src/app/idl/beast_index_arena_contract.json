@@ -1,0 +1,747 @@
+{
+  "address": "28VkZmQABZWqq3gmossB41hYF9846gG2TWMyk4u6jTd4",
+  "metadata": {
+    "name": "beast_index_arena_contract",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Created with Anchor"
+  },
+  "instructions": [
+    {
+      "name": "claim_winnings",
+      "discriminator": [
+        161,
+        215,
+        24,
+        59,
+        14,
+        236,
+        242,
+        221
+      ],
+      "accounts": [
+        {
+          "name": "battle_state",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  97,
+                  116,
+                  116,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "battle_state.battle_id",
+                "account": "BattleState"
+              }
+            ]
+          }
+        },
+        {
+          "name": "market_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "battle_state.battle_id",
+                "account": "BattleState"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user_position",
+          "writable": true
+        },
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "user_position"
+          ]
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "execute_turn",
+      "discriminator": [
+        196,
+        61,
+        43,
+        72,
+        203,
+        56,
+        74,
+        36
+      ],
+      "accounts": [
+        {
+          "name": "battle_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  97,
+                  116,
+                  116,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "battle_state.battle_id",
+                "account": "BattleState"
+              }
+            ]
+          }
+        },
+        {
+          "name": "executer",
+          "signer": true
+        },
+        {
+          "name": "clock",
+          "address": "SysvarC1ock11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "initialize_battle",
+      "discriminator": [
+        117,
+        108,
+        166,
+        159,
+        146,
+        82,
+        246,
+        223
+      ],
+      "accounts": [
+        {
+          "name": "battle_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  97,
+                  116,
+                  116,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "battle_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "battle_id",
+          "type": "u64"
+        },
+        {
+          "name": "hp",
+          "type": "u16"
+        },
+        {
+          "name": "atk",
+          "type": "u16"
+        },
+        {
+          "name": "def",
+          "type": "u16"
+        },
+        {
+          "name": "spd",
+          "type": "u16"
+        },
+        {
+          "name": "turn_interval",
+          "type": "i64"
+        },
+        {
+          "name": "max_duration",
+          "type": "i64"
+        }
+      ]
+    },
+    {
+      "name": "initialize_market",
+      "discriminator": [
+        35,
+        35,
+        189,
+        193,
+        155,
+        48,
+        170,
+        203
+      ],
+      "accounts": [
+        {
+          "name": "market_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "battle_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "battle_id",
+          "type": "u64"
+        },
+        {
+          "name": "initial_liquidity",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "place_bet",
+      "discriminator": [
+        222,
+        62,
+        67,
+        220,
+        63,
+        166,
+        126,
+        33
+      ],
+      "accounts": [
+        {
+          "name": "market_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "battle_state.battle_id",
+                "account": "BattleState"
+              }
+            ]
+          }
+        },
+        {
+          "name": "battle_state",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  97,
+                  116,
+                  116,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "battle_state.battle_id",
+                "account": "BattleState"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user_position",
+          "writable": true
+        },
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "creature_index",
+          "type": "u8"
+        },
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "sell_shares",
+      "discriminator": [
+        184,
+        164,
+        169,
+        16,
+        231,
+        158,
+        199,
+        196
+      ],
+      "accounts": [
+        {
+          "name": "battle_state",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  97,
+                  116,
+                  116,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "battle_state.battle_id",
+                "account": "BattleState"
+              }
+            ]
+          }
+        },
+        {
+          "name": "market_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "battle_state.battle_id",
+                "account": "BattleState"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user_position",
+          "writable": true
+        },
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "user_position"
+          ]
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "shares_to_sell",
+          "type": "u64"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "BattleState",
+      "discriminator": [
+        106,
+        85,
+        43,
+        49,
+        97,
+        18,
+        43,
+        245
+      ]
+    },
+    {
+      "name": "MarketState",
+      "discriminator": [
+        0,
+        125,
+        123,
+        215,
+        95,
+        96,
+        164,
+        194
+      ]
+    },
+    {
+      "name": "UserPosition",
+      "discriminator": [
+        251,
+        248,
+        209,
+        245,
+        83,
+        234,
+        17,
+        27
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "BattleAlreadyOver",
+      "msg": "Battle is already over"
+    },
+    {
+      "code": 6001,
+      "name": "TurnIntervalNotMet",
+      "msg": "Turn interval not met - wait longer between turns"
+    },
+    {
+      "code": 6002,
+      "name": "BattleDurationExceeded",
+      "msg": "Battle has exceeded maximum duration"
+    },
+    {
+      "code": 6003,
+      "name": "InvalidCreatureIndex",
+      "msg": "Invalid creature index (must be 0-3)"
+    },
+    {
+      "code": 6004,
+      "name": "BetTooSmall",
+      "msg": "Bet amount too small (minimum 0.01 SOL)"
+    },
+    {
+      "code": 6005,
+      "name": "CreatureIsDead",
+      "msg": "Cannot bet on a dead creature"
+    },
+    {
+      "code": 6006,
+      "name": "BattleNotOver",
+      "msg": "Battle is not over yet"
+    },
+    {
+      "code": 6007,
+      "name": "NoWinner",
+      "msg": "Battle has no winner (draw or timeout)"
+    },
+    {
+      "code": 6008,
+      "name": "NotAWinner",
+      "msg": "You didn't bet on the winning creature"
+    },
+    {
+      "code": 6009,
+      "name": "AlreadyClaimed",
+      "msg": "You already claimed your winnings"
+    },
+    {
+      "code": 6010,
+      "name": "CalculationOverflow",
+      "msg": "Calculation overflow"
+    },
+    {
+      "code": 6011,
+      "name": "DivisionByZero",
+      "msg": "Division by zero"
+    },
+    {
+      "code": 6012,
+      "name": "InsufficientShares",
+      "msg": "Insufficient shares to sell"
+    }
+  ],
+  "types": [
+    {
+      "name": "BattleState",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "battle_id",
+            "type": "u64"
+          },
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "creature_hp",
+            "type": {
+              "array": [
+                "u16",
+                4
+              ]
+            }
+          },
+          {
+            "name": "creature_max_hp",
+            "type": {
+              "array": [
+                "u16",
+                4
+              ]
+            }
+          },
+          {
+            "name": "creature_atk",
+            "type": {
+              "array": [
+                "u16",
+                4
+              ]
+            }
+          },
+          {
+            "name": "creature_def",
+            "type": {
+              "array": [
+                "u16",
+                4
+              ]
+            }
+          },
+          {
+            "name": "creature_spd",
+            "type": {
+              "array": [
+                "u16",
+                4
+              ]
+            }
+          },
+          {
+            "name": "is_alive",
+            "type": {
+              "array": [
+                "bool",
+                4
+              ]
+            }
+          },
+          {
+            "name": "is_battle_over",
+            "type": "bool"
+          },
+          {
+            "name": "winner",
+            "type": {
+              "option": "u8"
+            }
+          },
+          {
+            "name": "current_turn",
+            "type": "u64"
+          },
+          {
+            "name": "start_time",
+            "type": "i64"
+          },
+          {
+            "name": "last_turn_time",
+            "type": "i64"
+          },
+          {
+            "name": "turn_interval",
+            "type": "i64"
+          },
+          {
+            "name": "max_duration",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MarketState",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "battle_id",
+            "type": "u64"
+          },
+          {
+            "name": "creature_0_pool",
+            "type": "u64"
+          },
+          {
+            "name": "creature_1_pool",
+            "type": "u64"
+          },
+          {
+            "name": "creature_2_pool",
+            "type": "u64"
+          },
+          {
+            "name": "creature_3_pool",
+            "type": "u64"
+          },
+          {
+            "name": "total_pool",
+            "type": "u64"
+          },
+          {
+            "name": "is_settled",
+            "type": "bool"
+          },
+          {
+            "name": "creature_0_shares",
+            "type": "u64"
+          },
+          {
+            "name": "creature_1_shares",
+            "type": "u64"
+          },
+          {
+            "name": "creature_2_shares",
+            "type": "u64"
+          },
+          {
+            "name": "creature_3_shares",
+            "type": "u64"
+          },
+          {
+            "name": "k_constant",
+            "type": "u128"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "UserPosition",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "battle_id",
+            "type": "u64"
+          },
+          {
+            "name": "creature_index",
+            "type": "u8"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "claimed",
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    }
+  ]
+}
