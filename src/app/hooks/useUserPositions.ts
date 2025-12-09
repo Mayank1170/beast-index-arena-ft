@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useProgram } from "./useProgram";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
+import { retryWithBackoff } from "../utils/rpcRetry";
 
 const POLL_INTERVAL = 15000; // Poll every 15 seconds to avoid rate limits
 
@@ -34,7 +35,9 @@ export function useUserPositions(battleId: number | null) {
                 );
 
                 try {
-                    const positionData = await (program.account as any).userPosition.fetch(positionPDA);
+                    const positionData = await retryWithBackoff(async () => {
+                        return await (program.account as any).userPosition.fetch(positionPDA);
+                    });
 
                     // Only include if position actually has shares (user is not default)
                     if (positionData.user.toString() !== PublicKey.default.toString()) {
