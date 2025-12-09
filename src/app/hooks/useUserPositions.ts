@@ -3,7 +3,7 @@ import { useProgram } from "./useProgram";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 
-const POLL_INTERVAL = 5000; // Poll every 5 seconds
+const POLL_INTERVAL = 15000; // Poll every 15 seconds to avoid rate limits
 
 export function useUserPositions(battleId: number | null) {
     const program = useProgram();
@@ -34,7 +34,7 @@ export function useUserPositions(battleId: number | null) {
                 );
 
                 try {
-                    const positionData = await program.account.userPosition.fetch(positionPDA);
+                    const positionData = await (program.account as any).userPosition.fetch(positionPDA);
 
                     // Only include if position actually has shares (user is not default)
                     if (positionData.user.toString() !== PublicKey.default.toString()) {
@@ -45,8 +45,9 @@ export function useUserPositions(battleId: number | null) {
                             pda: positionPDA.toBase58(),
                         });
                     }
-                } catch (err) {
-                    // Position doesn't exist for this creature, skip
+                } catch (err: any) {
+                    // Position doesn't exist for this creature, skip silently
+                    // Don't log to avoid console spam
                     continue;
                 }
             }

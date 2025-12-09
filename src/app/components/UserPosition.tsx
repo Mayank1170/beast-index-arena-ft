@@ -7,7 +7,7 @@ import { useCurrentBattle } from "../hooks/useCurrentBattle";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 
-const POLL_INTERVAL = 5000; // Poll every 5 seconds
+const POLL_INTERVAL = 15000; // Poll every 15 seconds to avoid rate limits
 
 export function UserPosition() {
     const program = useProgram();
@@ -35,24 +35,23 @@ export function UserPosition() {
                     ],
                     program.programId
                 );
-                console.log(`Checking creature ${i} at: `, positionPDA.toBase58()); // ADD THIS
 
-                const position = await program.account.userPosition.fetch(positionPDA);
+                const position = await (program.account as any).userPosition.fetch(positionPDA);
 
-                console.log(`Found position for creature ${i}: `, position);
-
-                foundPositions.push({
-                    creature: i,
-                    shares: position.amount.toNumber(),
-                    claimed: position.claimed,
-                    pda: positionPDA
-                });
-            } catch (error) {
-                console.error('Error fetching user position:', error);
-                console.log(` No position for creature ${i}`);
+                // Only add if user actually owns this position
+                if (position.user.toString() !== PublicKey.default.toString()) {
+                    foundPositions.push({
+                        creature: i,
+                        shares: position.amount.toNumber(),
+                        claimed: position.claimed,
+                        pda: positionPDA
+                    });
+                }
+            } catch (error: any) {
+                // Silently skip - account doesn't exist (user hasn't bet on this creature)
+                continue;
             }
         }
-        console.log('Total positions found:', foundPositions);
         setPositions(foundPositions);
 
         // Fetch market data
@@ -65,11 +64,10 @@ export function UserPosition() {
                 program.programId
             );
 
-            const marketData = await program.account.marketState.fetch(marketPDA);
-            console.log('Market data:', marketData);
+            const marketData = await (program.account as any).marketState.fetch(marketPDA);
             setMarket(marketData);
-        } catch (error) {
-            console.error('Error fetching market:', error);
+        } catch (error: any) {
+            // Silently handle - market might not exist yet
         }
     };
 
@@ -209,107 +207,113 @@ export function UserPosition() {
 
     if (!wallet.connected) {
         return (
-            <div className="bg-gray-800 rounded-lg p-6">
-                <h2 className="text-2xl font-bold text-white mb-6">
-                    Your Positions
+            <div className="bg-black/30 rounded-xl border border-slate-800 p-6">
+                <h2 className="text-xl font-black text-white mb-4 tracking-tight">
+                    💼 YOUR POSITIONS
                 </h2>
-                <p className="text-gray-400">Connect wallet to see your positions</p>
+                <p className="text-slate-400 text-sm">Connect wallet to see your positions</p>
             </div>
         );
     }
 
     return (
-        <div className="bg-gray-800 rounded-lg p-6">
-            <h2 className="text-2xl font-bold text-white mb-6">
-                Your Positions - Battle #{currentBattleId || '...'}
-            </h2>
+        <div className="bg-black/30 rounded-xl border border-slate-800 p-6">
+            <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-black text-white tracking-tight">
+                    💼 YOUR POSITIONS
+                </h2>
+                <span className="text-xs text-slate-500 font-bold">
+                    BATTLE #{currentBattleId || '...'}
+                </span>
+            </div>
 
             {battle?.isBattleOver && (
-                <div className="bg-yellow-500 text-black p-4 rounded mb-4 text-center font-bold">
-                    Battle Over! Winner: Creature {battle.winner !== null ? battle.winner : 'None'}
+                <div className="bg-gradient-to-r from-yellow-500 to-orange-600 text-black p-3 rounded-lg mb-4 text-center font-bold text-sm">
+                    🏆 BATTLE OVER! WINNER: CREATURE {battle.winner !== null ? battle.winner : 'NONE'}
                 </div>
             )}
 
             {positions.length > 0 ? (
-                <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {positions.map((pos: any) => {
                         const isWinner = battle?.isBattleOver && battle.winner === pos.creature;
                         const isLoser = battle?.isBattleOver && battle.winner !== pos.creature;
 
                         return (
-                            <div key={pos.creature} className="bg-gray-700 p-4 rounded">
-                                <div className="flex justify-between items-center">
+                            <div key={pos.creature} className="bg-slate-900/50 border border-slate-700 p-4 rounded-lg">
+                                <div className="flex justify-between items-start mb-3">
                                     <div>
-                                        <div className="text-white font-bold">
-                                            Creature {pos.creature}
-                                            {isWinner}
-                                            {isLoser}
+                                        <div className="text-white font-black text-lg flex items-center gap-2">
+                                            CREATURE {pos.creature}
+                                            {isWinner && <span className="text-yellow-400">👑</span>}
+                                            {isLoser && <span className="text-red-500">💀</span>}
                                         </div>
-                                        <div className="text-sm text-gray-400">
-                                            Shares: {pos.shares.toLocaleString()}
+                                        <div className="text-xs text-slate-400 mt-1">
+                                            <span className="font-bold text-white">{pos.shares.toLocaleString()}</span> SHARES
                                         </div>
-                                        {isWinner && !pos.claimed && (
-                                            <div className="text-sm text-green-400">
-                                                Estimated Payout: {calculatePayout(pos.shares, pos.creature).toFixed(4)} SOL
-                                            </div>
-                                        )}
-                                        {isLoser && (
-                                            <div className="text-sm text-red-400">
-                                                Lost
-                                            </div>
-                                        )}
+                                    </div>
+                                    <div>
                                         {pos.claimed && (
-                                            <div className="text-sm text-green-400">
-                                                Already claimed
-                                            </div>
+                                            <span className="text-green-400 text-xs font-bold bg-green-900/30 px-2 py-1 rounded border border-green-700">
+                                                ✅ CLAIMED
+                                            </span>
+                                        )}
+                                        {!pos.claimed && isWinner && (
+                                            <span className="text-yellow-400 text-xs font-bold bg-yellow-900/30 px-2 py-1 rounded border border-yellow-700">
+                                                💰 WINNER
+                                            </span>
                                         )}
                                     </div>
+                                </div>
 
-                                    <div className="flex gap-2">
-                                        {!battle?.isBattleOver ? (
-                                            <>
-                                                <button
-                                                    onClick={() => handleSell(pos.creature, pos.pda, Math.floor(pos.shares / 2))}
-                                                    disabled={selling}
-                                                    className="bg-orange-600 hover:bg-orange-700 disabled:bg-gray-600 text-white px-4 py-2 rounded"
-                                                >
-                                                    {selling ? 'loading..' : 'Sell Half'}
-                                                </button>
-
-                                                <button
-                                                    onClick={() => handleSell(pos.creature, pos.pda, pos.shares)}
-                                                    disabled={selling}
-                                                    className="bg-red-600 hover:bg-red-700 disabled:bg-gray-600 text-white px-4 py-2 rounded"
-                                                >
-                                                    {selling ? 'loading..' : 'Sell All'}
-                                                </button>
-                                            </>
-                                        ) : (
-                                            <>
-                                                {isWinner && !pos.claimed && (
-                                                    <button
-                                                        onClick={() => handleClaim(pos.creature, pos.pda)}
-                                                        disabled={claiming}
-                                                        className="bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white px-4 py-2 rounded"
-                                                    >
-                                                        {claiming ? 'Claiming...' : 'Claim Winnings'}
-                                                    </button>
-                                                )}
-                                                {pos.claimed && (
-                                                    <div className="text-green-400 font-bold px-4 py-2">
-                                                        Claimed
-                                                    </div>
-                                                )}
-                                            </>
-                                        )}
+                                {isWinner && !pos.claimed && (
+                                    <div className="text-sm text-green-400 mb-3 bg-green-900/20 p-2 rounded border border-green-700">
+                                        Est. Payout: <span className="font-bold">{calculatePayout(pos.shares, pos.creature).toFixed(4)} SOL</span>
                                     </div>
+                                )}
+
+                                <div className="flex gap-2">
+                                    {!battle?.isBattleOver ? (
+                                        <>
+                                            <button
+                                                onClick={() => handleSell(pos.creature, pos.pda, Math.floor(pos.shares / 2))}
+                                                disabled={selling}
+                                                className="flex-1 bg-orange-600/20 hover:bg-orange-600 text-orange-400 hover:text-white py-2 rounded font-bold text-xs border border-orange-600/50 transition-all disabled:opacity-50"
+                                            >
+                                                {selling ? '⏳' : '📉 SELL HALF'}
+                                            </button>
+
+                                            <button
+                                                onClick={() => handleSell(pos.creature, pos.pda, pos.shares)}
+                                                disabled={selling}
+                                                className="flex-1 bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white py-2 rounded font-bold text-xs border border-red-600/50 transition-all disabled:opacity-50"
+                                            >
+                                                {selling ? '⏳' : '📉 SELL ALL'}
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <>
+                                            {isWinner && !pos.claimed && (
+                                                <button
+                                                    onClick={() => handleClaim(pos.creature, pos.pda)}
+                                                    disabled={claiming}
+                                                    className="w-full bg-green-600/20 hover:bg-green-600 text-green-400 hover:text-white py-2 rounded font-bold text-sm border border-green-600/50 transition-all disabled:opacity-50"
+                                                >
+                                                    {claiming ? '⏳ CLAIMING...' : '💰 CLAIM WINNINGS'}
+                                                </button>
+                                            )}
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         );
                     })}
                 </div>
             ) : (
-                <p className="text-gray-400">No positions yet. Buy some shares!</p>
+                <div className="text-center py-8 text-slate-500">
+                    <div className="text-4xl mb-2">📊</div>
+                    <div className="text-sm">No positions yet. Buy some shares to get started!</div>
+                </div>
             )}
         </div>
     );

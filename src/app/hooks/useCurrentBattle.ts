@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { useProgram } from "./useProgram";
 import { PublicKey } from "@solana/web3.js";
 
-const STARTING_BATTLE_ID = 102; // Same as bot config
-const POLL_INTERVAL = 3000; // Poll every 3 seconds for real-time updates
+const STARTING_BATTLE_ID = 103; // Same as bot config
+const POLL_INTERVAL = 10000; // Poll every 10 seconds to avoid rate limits
 
 export function useCurrentBattle() {
     const program = useProgram();
@@ -31,7 +31,7 @@ export function useCurrentBattle() {
         try {
             const pda = getBattlePDA(battleId);
             if (!pda) return false;
-            await program.account.battleState.fetch(pda);
+            await (program.account as any).battleState.fetch(pda);
             return true;
         } catch {
             return false;
@@ -68,7 +68,7 @@ export function useCurrentBattle() {
             const pda = getBattlePDA(battleId);
             if (!pda) return;
 
-            const battleData = await program.account.battleState.fetch(pda);
+            const battleData = await (program.account as any).battleState.fetch(pda);
             setBattle(battleData);
             setError(null);
             setLoading(false);
