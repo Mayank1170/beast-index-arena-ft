@@ -12,35 +12,58 @@ export function useCurrentBattle() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // Helper to get global state PDA
-    const getGlobalPDA = () => {
+    // Helper to find the latest battle by searching recent battle IDs
+    const findLatestBattle = async (startFrom: number): Promise<number | null> => {
         if (!program) return null;
-        const [pda] = PublicKey.findProgramAddressSync(
-            [Buffer.from('global')],
-            program.programId
-        );
-        return pda;
-    };
 
-    // Helper to get current battle ID from global state
-    const getCurrentBattleId = async (): Promise<number | null> => {
-        if (!program) return null;
-        try {
-            const globalPDA = getGlobalPDA();
-            if (!globalPDA) return null;
+        console.log(`🔍 Searching for battles starting from #${startFrom}...`);
+        let lastFoundBattle: number | null = null;
 
-            const globalState = await retryWithBackoff(async () => {
-                return await (program.account as any).globalState.fetch(globalPDA);
-            });
-            const battleId = typeof globalState.currentBattleId?.toNumber === 'function'
-                ? globalState.currentBattleId.toNumber()
-                : globalState.currentBattleId;
-            console.log(`🌍 Current battle ID from chain: ${battleId}`);
-            return battleId;
-        } catch (error: any) {
-            console.error("Failed to fetch current battle ID:", error?.message || error);
-            return null;
+        // Search forward up to 100 battles
+        for (let offset = 0; offset < 100; offset++) {
+            const battleId = startFrom + offset;
+            try {
+                const pda = getBattlePDA(battleId);
+                if (!pda) continue;
+
+                console.log(`  Checking battle #${battleId}...`);
+
+                const battleData = await retryWithBackoff(async () => {
+                    return await (program.account as any).battleState.fetch(pda);
+                });
+
+                lastFoundBattle = battleId;
+
+                // If this battle exists and is not over, it's the current one
+                if (!battleData.isBattleOver) {
+                    console.log(`✅ Found ACTIVE battle: #${battleId}`);
+                    return battleId;
+                }
+
+                console.log(`  Battle #${battleId} is over, checking next...`);
+                // If battle is over, continue to next
+                continue;
+            } catch (error: any) {
+                const errorMsg = error?.message || String(error);
+
+                // If account doesn't exist, we've gone too far
+                if (errorMsg.includes('Account does not exist') || errorMsg.includes('could not find account')) {
+                    if (lastFoundBattle !== null) {
+                        console.log(`🏁 Latest battle is #${lastFoundBattle} (next doesn't exist yet)`);
+                        return lastFoundBattle;
+                    }
+                    console.log(`❌ Battle #${battleId} not found`);
+                    break;
+                }
+
+                console.warn(`⚠️ Error checking battle #${battleId}:`, errorMsg);
+                // For other errors, try a few more times before giving up
+                if (offset < 5) continue;
+                break;
+            }
         }
+
+        return lastFoundBattle;
     };
 
     // Helper to get battle PDA
@@ -88,14 +111,14 @@ export function useCurrentBattle() {
             setError(null);
             setLoading(false);
 
-            // If current battle is over, check global state for latest battle
+            // If current battle is over, search for the next battle
             if (battleData.isBattleOver) {
-                console.log(`🏁 Battle #${battleId} is over, checking for latest battle...`);
-                const latestBattleId = await getCurrentBattleId();
+                console.log(`🏁 Battle #${battleId} is over, checking for next battle...`);
+                const nextBattleId = await findLatestBattle(battleId + 1);
 
-                if (latestBattleId !== null && latestBattleId > battleId) {
-                    console.log(`✅ Jumping to latest battle #${latestBattleId}`);
-                    setCurrentBattleId(latestBattleId);
+                if (nextBattleId !== null && nextBattleId > battleId) {
+                    console.log(`✅ Jumping to battle #${nextBattleId}`);
+                    setCurrentBattleId(nextBattleId);
                 } else {
                     console.log(`⏳ No new battles yet, waiting...`);
                 }
@@ -113,22 +136,27 @@ export function useCurrentBattle() {
         }
     };
 
-    // Initial setup: get current battle from global state
+    // Initial setup: find the latest battle
     useEffect(() => {
         if (!program) return;
 
         const initialize = async () => {
             setLoading(true);
-            console.log(`🔍 Fetching current battle ID from global state...`);
-            const latestBattleId = await getCurrentBattleId();
+            console.log(`🔍 Searching for latest battle...`);
+
+            // Start searching from a known recent battle
+            // Bot is currently around #375-380
+            const startBattleId = 375;
+            console.log(`🔍 Starting search from battle #${startBattleId}`);
+            const latestBattleId = await findLatestBattle(startBattleId);
 
             if (latestBattleId === null) {
-                console.log(`❌ No battle ID found in global state`);
+                console.log(`❌ No active battles found`);
                 setLoading(false);
                 return;
             }
 
-            console.log(`🎮 Current battle: #${latestBattleId}`);
+            console.log(`🎮 Latest battle: #${latestBattleId}`);
             setCurrentBattleId(latestBattleId);
             await fetchBattle(latestBattleId);
         };

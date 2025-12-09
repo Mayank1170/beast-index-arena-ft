@@ -1,5 +1,5 @@
 {
-  "address": "H3EA4meFoepS9ZvufFg83ZJ3E6Ma98hQAbHhx64A9NoB",
+  "address": "28VkZmQABZWqq3gmossB41hYF9846gG2TWMyk4u6jTd4",
   "metadata": {
     "name": "beast_index_arena_contract",
     "version": "0.1.0",
@@ -210,50 +210,6 @@
           "type": "i64"
         }
       ]
-    },
-    {
-      "name": "initialize_global",
-      "discriminator": [
-        47,
-        225,
-        15,
-        112,
-        86,
-        51,
-        190,
-        231
-      ],
-      "accounts": [
-        {
-          "name": "global_state",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  103,
-                  108,
-                  111,
-                  98,
-                  97,
-                  108
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "authority",
-          "writable": true,
-          "signer": true
-        },
-        {
-          "name": "system_program",
-          "address": "11111111111111111111111111111111"
-        }
-      ],
-      "args": []
     },
     {
       "name": "initialize_market",
@@ -480,53 +436,6 @@
           "type": "u64"
         }
       ]
-    },
-    {
-      "name": "update_current_battle",
-      "discriminator": [
-        91,
-        6,
-        18,
-        82,
-        20,
-        83,
-        251,
-        138
-      ],
-      "accounts": [
-        {
-          "name": "global_state",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  103,
-                  108,
-                  111,
-                  98,
-                  97,
-                  108
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "authority",
-          "signer": true,
-          "relations": [
-            "global_state"
-          ]
-        }
-      ],
-      "args": [
-        {
-          "name": "battle_id",
-          "type": "u64"
-        }
-      ]
     }
   ],
   "accounts": [
@@ -541,19 +450,6 @@
         18,
         43,
         245
-      ]
-    },
-    {
-      "name": "GlobalState",
-      "discriminator": [
-        163,
-        46,
-        74,
-        168,
-        216,
-        123,
-        133,
-        98
       ]
     },
     {
@@ -747,26 +643,6 @@
           {
             "name": "max_duration",
             "type": "i64"
-          },
-          {
-            "name": "bump",
-            "type": "u8"
-          }
-        ]
-      }
-    },
-    {
-      "name": "GlobalState",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "current_battle_id",
-            "type": "u64"
-          },
-          {
-            "name": "authority",
-            "type": "pubkey"
           },
           {
             "name": "bump",

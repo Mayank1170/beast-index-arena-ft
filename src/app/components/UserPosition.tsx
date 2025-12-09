@@ -6,10 +6,12 @@ import { useProgram } from "../hooks/useProgram";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 import { retryWithBackoff } from "../utils/rpcRetry";
+import { useCurrentBattle } from "../hooks/useCurrentBattle";
 
 export function UserPosition() {
     const program = useProgram();
     const wallet = useWallet();
+    const { currentBattleId } = useCurrentBattle();
     const [positions, setPositions] = useState<any>([]);
     const [selling, setSelling] = useState(false);
     const [battleOver, setBattleOver] = useState(false);
@@ -18,9 +20,9 @@ export function UserPosition() {
     const [market, setMarket] = useState<any>(null);
 
     const fetchUserPositions = async () => {
-        if (!program || !wallet.publicKey) return;
+        if (!program || !wallet.publicKey || !currentBattleId) return;
 
-        const battleId = 102;
+        const battleId = currentBattleId;
         const foundPositions = [];
 
         for (let i = 0; i < 4; i++) {
@@ -97,10 +99,10 @@ export function UserPosition() {
     };
 
     const handleSell = async (creature: number, positionPDA: any, shares: number) => {
-        if (!program || !wallet.publicKey) return;
+        if (!program || !wallet.publicKey || !currentBattleId) return;
         setSelling(true);
         try {
-            const battleId = 102;
+            const battleId = currentBattleId;
             console.log('Selling shares...');
             console.log('  Creature:', creature);
             console.log('  Shares:', shares);
@@ -144,12 +146,12 @@ export function UserPosition() {
     };
 
     const handleClaim = async (creature: number, positionPDA: any) => {
-        if (!program || !wallet.publicKey) return;
+        if (!program || !wallet.publicKey || !currentBattleId) return;
 
         setClaiming(true);
 
         try {
-            const battleId = 102;
+            const battleId = currentBattleId;
 
             console.log('Claiming winnings...');
             console.log('Creature:', creature);
@@ -217,7 +219,7 @@ export function UserPosition() {
 
     useEffect(() => {
         fetchUserPositions();
-    }, [program, wallet.publicKey]);
+    }, [program, wallet.publicKey, currentBattleId]);
 
     return (
         <div className="bg-gray-800 rounded-lg p-6">
