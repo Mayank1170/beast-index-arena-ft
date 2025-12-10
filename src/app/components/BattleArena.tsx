@@ -126,14 +126,24 @@ export function BattleArena() {
 
       <div className="relative z-10 min-h-screen flex flex-col">
         <header className="w-full flex justify-between items-center p-4 md:p-6 bg-black/40 backdrop-blur-md border-b border-white/10">
-          <div>
-            <h1 className="text-3xl md:text-5xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-orange-500 to-red-600 drop-shadow-2xl">
-              BEAST INDEX ARENA
-            </h1>
-            <div className="flex gap-2 mt-2">
-              <span className="px-3 py-1 bg-green-500/20 text-green-300 text-xs font-bold rounded-full border border-green-500/30 backdrop-blur-sm flex items-center gap-1">
-                Money Bag BATTLE #{battleId}
-              </span>
+          <div className="flex items-center gap-4">
+            <Image
+              src="/logo.png"
+              alt="Cryptids Arena Logo"
+              width={80}
+              height={80}
+              className=""
+              priority
+            />
+            <div>
+              {/* <h1 className="text-3xl md:text-5xl font-black italic tracking-tighter">
+                CRYPTIDS ARENA
+              </h1> */}
+              <div className="flex gap-2 mt-2">
+                <span className="px-3 py-1 bg-green-500/20 text-green-300 text-xs font-bold rounded-full border border-green-500/30 backdrop-blur-sm flex items-center gap-1">
+                  BATTLE #{battleId}
+                </span>
+              </div>
             </div>
           </div>
 
