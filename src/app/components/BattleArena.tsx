@@ -88,16 +88,22 @@ export function BattleArena() {
     return (
       <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center">
         <div className="text-center">
-          {/* <div className="text-6xl mb-4">Cross</div> */}
-          <div className="text-2xl font-black mb-4">NO ACTIVE BATTLE</div>
-          {/* <div className="text-sm text-slate-400">Make sure the bot is running</div> */}
+          <div className="text-6xl mb-4 animate-pulse">⏳</div>
+          <div className="text-2xl font-black mb-4">WAITING FOR NEXT BATTLE</div>
+          <div className="text-sm text-slate-400">Bot creates new battles every ~60 seconds</div>
+          <div className="text-sm text-slate-400 mt-2">The page will automatically refresh...</div>
         </div>
       </div>
     );
   }
 
-  const isWinner = (index: number) =>
-    battle.isBattleOver && battle.winner !== null && battle.winner.toNumber() === index;
+  const isWinner = (index: number) => {
+    if (!battle?.isBattleOver || battle.winner === null) return false;
+    const winnerIndex = typeof battle.winner?.toNumber === 'function'
+      ? battle.winner.toNumber()
+      : battle.winner;
+    return winnerIndex === index;
+  };
 
   // Safe conversion helpers
   const battleId = currentBattleId;
@@ -151,7 +157,7 @@ export function BattleArena() {
               Trophy BATTLE OVER! Trophy
             </div>
             <div className="text-xl md:text-3xl font-black mt-2">
-              WINNER: {battle.winner !== null ? BEAST_CONFIG[battle.winner.toNumber()].name : "DRAW"}
+              WINNER: {battle.winner !== null ? BEAST_CONFIG[typeof battle.winner?.toNumber === 'function' ? battle.winner.toNumber() : battle.winner].name : "DRAW"}
             </div>
           </div>
         )}

@@ -35,9 +35,7 @@ export function useUserPositions(battleId: number | null) {
                 );
 
                 try {
-                    const positionData = await retryWithBackoff(async () => {
-                        return await (program.account as any).userPosition.fetch(positionPDA);
-                    });
+                    const positionData = await (program.account as any).userPosition.fetch(positionPDA);
 
                     // Only include if position actually has shares (user is not default)
                     if (positionData.user.toString() !== PublicKey.default.toString()) {
@@ -49,8 +47,7 @@ export function useUserPositions(battleId: number | null) {
                         });
                     }
                 } catch (err: any) {
-                    // Position doesn't exist for this creature, skip silently
-                    // Don't log to avoid console spam
+                    // Position doesn't exist for this creature, skip silently (this is normal)
                     continue;
                 }
             }

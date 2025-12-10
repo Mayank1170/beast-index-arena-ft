@@ -36,13 +36,9 @@ export function UserPosition() {
                     ],
                     program.programId
                 );
-                console.log(`Checking creature ${i} at: `, positionPDA.toBase58()); // ADD THIS
+                const position = await (program.account as any).userPosition.fetch(positionPDA);
 
-                const position = await retryWithBackoff(async () => {
-                    return await (program.account as any).userPosition.fetch(positionPDA);
-                });
-
-                console.log(`Found position for creature ${i}: `, position);
+                console.log(`✅ Found position for creature ${i}:`, position.amount.toNumber(), 'shares');
 
                 foundPositions.push({
                     creature: i,
@@ -50,9 +46,12 @@ export function UserPosition() {
                     claimed: position.claimed,
                     pda: positionPDA
                 });
-            } catch (error) {
-                console.error('Error fetching user position:', error);
-                console.log(` No position for creature ${i}`);
+            } catch (error: any) {
+                // This is normal - user may not have positions for all creatures
+                const errorMsg = error?.message || String(error);
+                if (!errorMsg.includes('Account does not exist')) {
+                    console.warn(`⚠️ Error checking position for creature ${i}:`, errorMsg);
+                }
             }
         }
         console.log('Total positions found:', foundPositions);

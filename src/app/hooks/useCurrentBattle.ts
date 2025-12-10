@@ -151,8 +151,12 @@ export function useCurrentBattle() {
             const latestBattleId = await findLatestBattle(startBattleId);
 
             if (latestBattleId === null) {
-                console.log(`❌ No active battles found`);
+                console.log(`❌ No battles found - Bot may be starting up or between battles`);
+                setError('Waiting for battles to start...');
                 setLoading(false);
+
+                // Retry after 10 seconds
+                setTimeout(() => initialize(), 10000);
                 return;
             }
 
