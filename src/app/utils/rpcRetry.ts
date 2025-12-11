@@ -1,6 +1,5 @@
-const MAX_RETRIES = 3;
-const INITIAL_RETRY_DELAY = 1000; // 1 second
-
+const MAX_RETRIES = 2;
+const INITIAL_RETRY_DELAY = 2000;
 /**
  * Retry helper with exponential backoff for RPC calls
  * Automatically handles rate limiting (429 errors) and account not found errors
@@ -15,12 +14,12 @@ export async function retryWithBackoff<T>(
     } catch (error: any) {
         // Check if it's a rate limit error
         const isRateLimit = error?.message?.includes('429') ||
-                          error?.code === 429 ||
-                          error?.message?.includes('Too many requests');
+            error?.code === 429 ||
+            error?.message?.includes('Too many requests');
 
         // Check if account doesn't exist
         const isAccountNotFound = error?.message?.includes('Account does not exist') ||
-                                 error?.message?.includes('could not find account');
+            error?.message?.includes('could not find account');
 
         if (isAccountNotFound) {
             console.warn('Account not found:', error?.message);

@@ -4,8 +4,7 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 import { retryWithBackoff } from "../utils/rpcRetry";
 
-const POLL_INTERVAL = 15000; // Poll every 15 seconds to avoid rate limits
-
+const POLL_INTERVAL = 5000; 
 export function useUserPositions(battleId: number | null) {
     const program = useProgram();
     const wallet = useWallet();

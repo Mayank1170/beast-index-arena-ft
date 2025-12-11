@@ -14,7 +14,13 @@ import '@solana/wallet-adapter-react-ui/styles.css';
 
 export const WalletContextProvider: FC<{ children: ReactNode }> = ({ children }) => {
 
-    const endpoint = useMemo(() => clusterApiUrl('devnet'), []);
+       const endpoint = useMemo(() => {
+        const customEndpoint = process.env.NEXT_PUBLIC_RPC_ENDPOINT;
+        if (customEndpoint && customEndpoint.trim() !== '') {
+            return customEndpoint;
+        }
+        return clusterApiUrl('devnet');
+    }, []);
 
     const wallets = useMemo(
         () => [

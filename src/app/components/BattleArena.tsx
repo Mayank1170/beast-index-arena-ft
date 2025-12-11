@@ -4,13 +4,14 @@ import { useCurrentBattle } from "../hooks/useCurrentBattle";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { MarketActions } from "./MarketActions";
+import { BattleLogs } from "./BattleLogs";
 import Image from "next/image";
 
 const BEAST_CONFIG = [
   {
     id: 0,
     name: "YETI",
-    country: "Nepal",
+    country: "",
     image: "/beasts/yeti/yeti.png",
     imageDead: "/beasts/yeti/Yeti_dead.png",
     imageWin: "/beasts/yeti/yeti_win.png",
@@ -21,7 +22,7 @@ const BEAST_CONFIG = [
   {
     id: 1,
     name: "MAPINGUARI",
-    country: "Brazil",
+    country: "",
     image: "/beasts/mapinguari/mapinguari.png",
     imageDead: "/beasts/mapinguari/mapinguari_dead.png",
     imageWin: "/beasts/mapinguari/mapinguari_win.png",
@@ -32,7 +33,7 @@ const BEAST_CONFIG = [
   {
     id: 2,
     name: "ZMEY",
-    country: "Russia",
+    country: "",
     image: "/beasts/zmey/zmey.png",
     imageDead: "/beasts/zmey/Zmey_dead.png",
     imageWin: "/beasts/zmey/Zmey_win.png",
@@ -43,7 +44,7 @@ const BEAST_CONFIG = [
   {
     id: 3,
     name: "NAGA",
-    country: "India",
+    country: "",
     image: "/beasts/naga/naga.png",
     imageDead: "/beasts/naga/naga_dead.png",
     imageWin: "/beasts/naga/Naga_win.png",
@@ -54,7 +55,7 @@ const BEAST_CONFIG = [
 ];
 
 export function BattleArena() {
-  const { currentBattleId, battle, loading } = useCurrentBattle();
+  const { currentBattleId, battle, loading, battleLogs } = useCurrentBattle();
   const wallet = useWallet();
   const [previousHp, setPreviousHp] = useState<number[]>([100, 100, 100, 100]);
   const [damagedCreatures, setDamagedCreatures] = useState<boolean[]>([false, false, false, false]);
@@ -125,7 +126,7 @@ export function BattleArena() {
       </div>
 
       <div className="relative z-10 min-h-screen flex flex-col">
-        <header className="w-full flex justify-between items-center p-4 md:p-6 bg-black/40 backdrop-blur-md border-b border-white/10">
+        <header className="w-full flex justify-between items-center p-4 md:p-3 bg-black/40 backdrop-blur-md border-b border-white/10">
           <div className="flex items-center gap-4">
             <Image
               src="/logo.png"
@@ -162,123 +163,123 @@ export function BattleArena() {
         </header>
 
         {battle.isBattleOver && (
-          <div className="w-full py-2 text-black text-center bg-yellow-400">
-            <div className="text-3xl md:text-5xl font-black animate-pulse">
-              Trophy BATTLE OVER! Trophy
+          <div className="w-full text-black text-center">
+            <div className="text-xl md:text-3xl font-black animate-pulse">
+              BATTLE OVER!
             </div>
-            <div className="text-xl md:text-3xl font-black mt-2">
+            <div className="text-lg md:text-xl font-black mt-2">
               WINNER: {battle.winner !== null ? BEAST_CONFIG[typeof battle.winner?.toNumber === 'function' ? battle.winner.toNumber() : battle.winner].name : "DRAW"}
             </div>
           </div>
         )}
 
-        <div className="flex-1 relative min-h-[900px]">
-          {BEAST_CONFIG.map((beast, index) => {
-            const hp = battle.creatureHp[index];
-            const maxHp = battle.creatureMaxHp[index];
-            const alive = battle.isAlive[index];
-            const winner = isWinner(index);
-            const hpPercent = (hp / maxHp) * 100;
-            const isDamaged = damagedCreatures[index];
+        <div className="flex-1 flex flex-col p-4 gap-4 overflow-auto">
+          <div className="flex-1 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 max-w-7xl mx-auto w-full">
+            {BEAST_CONFIG.map((beast, index) => {
+              const hp = battle.creatureHp[index];
+              const maxHp = battle.creatureMaxHp[index];
+              const alive = battle.isAlive[index];
+              const winner = isWinner(index);
+              const hpPercent = (hp / maxHp) * 100;
+              const isDamaged = damagedCreatures[index];
 
-            let imageSrc = beast.image;
-            if (winner) imageSrc = beast.imageWin;
-            else if (!alive) imageSrc = beast.imageDead;
+              let imageSrc = beast.image;
+              if (winner) imageSrc = beast.imageWin;
+              else if (!alive) imageSrc = beast.imageDead;
 
-            const positionClasses = [
-              "absolute top-8 left-8",
-              "absolute top-8 right-8",
-              "absolute bottom-8 left-8",
-              "absolute bottom-8 right-8",
-            ];
+              const imageScale = (index === 0 || index === 2) && alive && !winner ? "scale-150" : "scale-100";
 
-            return (
-              <div
-                key={beast.id}
-                className={`${positionClasses[index]} w-72 rounded-xl overflow-hidden transition-all duration-300 ${alive
-                  ? `bg-gradient-to-br ${beast.color} ${isDamaged ? "animate-shake" : ""}`
-                  : "bg-slate-900/50 opacity-80 grayscale"
-                  } ${winner ? "ring-4 ring-yellow-400 shadow-2xl shadow-yellow-500/50" : ""} border-2 ${beast.borderColor} backdrop-blur-sm`}
-              >
-                <div className="p-2.5">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xl">{beast.country}</span>
-                      <h2 className="text-sm font-black text-white drop-shadow-lg">{beast.name}</h2>
+              return (
+                <div
+                  key={beast.id}
+                  className={`relative rounded-xl overflow-hidden transition-all duration-300 ${alive
+                    ? `bg-gradient-to-br ${beast.color} ${isDamaged ? "animate-shake" : ""}`
+                    : "bg-slate-900/50 opacity-80 grayscale"
+                    } ${winner ? "ring-4 ring-yellow-400 shadow-2xl shadow-yellow-500/50" : ""} border-2 ${beast.borderColor} backdrop-blur-sm`}
+                >
+                  <div className="p-3 border-b border-white/10">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        {beast.country && <span className="text-2xl">{beast.country}</span>}
+                        <h2 className="text-base font-black text-white drop-shadow-lg">{beast.name}</h2>
+                      </div>
+                      <div className="bg-black/80 px-2 py-1 rounded-full">
+                        <span className={`text-lg font-black ${hp < 30 ? "text-red-400 animate-pulse" : "text-white"}`}>
+                          {hp}
+                        </span>
+                        <span className="text-xs text-slate-400"> / {maxHp}</span>
+                      </div>
                     </div>
-                    <div className="bg-black/80 px-2 py-0.5 rounded-full">
-                      <span className={`text-base font-black ${hp < 30 ? "text-red-400 animate-pulse" : "text-white"}`}>
-                        {hp}
-                      </span>
-                      <span className="text-xs text-slate-400"> / {maxHp}</span>
+
+                    <div className="w-full h-3 bg-black/60 rounded-full overflow-hidden border border-white/30 shadow-lg">
+                      <div
+                        className={`h-full transition-all duration-300 ${hpPercent > 60
+                          ? "bg-gradient-to-r from-green-400 to-green-600"
+                          : hpPercent > 30
+                            ? "bg-gradient-to-r from-yellow-400 to-orange-500"
+                            : "bg-gradient-to-r from-red-500 to-red-700 animate-pulse"
+                          }`}
+                        style={{ width: `${hpPercent}%` }}
+                      />
                     </div>
                   </div>
 
-                  <div className="w-full h-2.5 bg-black/60 rounded-full overflow-hidden border border-white/30 shadow-lg">
-                    <div
-                      className={`h-full transition-all duration-300 ${hpPercent > 60
-                        ? "bg-gradient-to-r from-green-400 to-green-600"
-                        : hpPercent > 30
-                          ? "bg-gradient-to-r from-yellow-400 to-orange-500"
-                          : "bg-gradient-to-r from-red-500 to-red-700 animate-pulse"
-                        }`}
-                      style={{ width: `${hpPercent}%` }}
+                  <div className="relative h-48 flex items-center justify-center bg-black/20">
+                    <div className={`relative w-40 h-40 ${isDamaged ? "animate-damage-flash" : ""}`}>
+                      <Image
+                        src={imageSrc}
+                        alt={beast.name}
+                        fill
+                        className={`object-contain drop-shadow-2xl transition-all duration-300 ${imageScale} ${alive ? "" : "opacity-60"
+                          } ${winner ? "animate-bounce" : ""}`}
+                        priority
+                      />
+                      {alive && !battle.isBattleOver && (
+                        <div className={`absolute inset-0 ${beast.glowColor} blur-2xl opacity-30 -z-10 animate-pulse`}></div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-black/40 backdrop-blur-md border-t border-white/10">
+                    <MarketActions
+                      creatureIndex={index}
+                      creatureName={beast.name}
+                      isAlive={alive}
+                      battleOver={battle.isBattleOver}
                     />
                   </div>
-                </div>
 
-                <div className="h-40 flex items-center justify-center px-3 pb-2 relative">
-                  <div className={`relative ${isDamaged ? "animate-damage-flash" : ""}`}>
-                    <Image
-                      src={imageSrc}
-                      alt={beast.name}
-                      width={150}
-                      height={150}
-                      className={`object-contain drop-shadow-2xl transition-all duration-300 ${alive ? "scale-100" : "scale-90 opacity-60"
-                        } ${winner ? "animate-bounce" : ""}`}
-                      priority
-                    />
-                    {alive && !battle.isBattleOver && (
-                      <div className={`absolute inset-0 ${beast.glowColor} blur-2xl opacity-30 -z-10 animate-pulse`}></div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="p-2.5 bg-black/40 backdrop-blur-md border-t border-white/10">
-                  <MarketActions
-                    creatureIndex={index}
-                    creatureName={beast.name}
-                    isAlive={alive}
-                    battleOver={battle.isBattleOver}
-                  />
-                </div>
-
-                {!alive && (
-                  <div className="absolute top-2 right-2 z-40">
-                    <div className="bg-gradient-to-br from-red-600 to-red-800 text-white font-black text-xs px-2.5 py-1 rounded-full shadow-xl border-2 border-red-400">
-                      Skull ELIMINATED
+                  {!alive && (
+                    <div className="absolute top-3 right-3 z-40">
+                      <div className="bg-gradient-to-br from-red-600 to-red-800 text-white font-black text-xs px-3 py-1 rounded-full shadow-xl border-2 border-red-400">
+                        💀 ELIMINATED
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {winner && (
-                  <div className="absolute top-2 right-2 z-40">
-                    <div className="bg-gradient-to-br from-yellow-300 via-yellow-400 to-yellow-600 text-black font-black text-xs px-2.5 py-1 rounded-full shadow-2xl animate-pulse border-2 border-yellow-200">
-                      Crown CHAMPION
+                  {winner && (
+                    <div className="absolute top-3 right-3 z-40">
+                      <div className="bg-gradient-to-br from-yellow-300 via-yellow-400 to-yellow-600 text-black font-black text-xs px-3 py-1 rounded-full shadow-2xl animate-pulse border-2 border-yellow-200">
+                        👑 CHAMPION
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {alive && hp < 30 && !battle.isBattleOver && (
-                  <div className="absolute bottom-24 left-1/2 transform -translate-x-1/2 z-20">
-                    <div className="bg-red-600 text-white font-black text-xs px-2.5 py-1 rounded-full animate-bounce shadow-lg">
-                      Warning CRITICAL!
+                  {alive && hp < 30 && !battle.isBattleOver && (
+                    <div className="absolute top-3 left-3 z-20">
+                      <div className="bg-red-600 text-white font-black text-xs px-3 py-1 rounded-full animate-pulse shadow-lg">
+                        ⚠️ CRITICAL!
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="w-full max-w-7xl mx-auto">
+            <BattleLogs logs={battleLogs} />
+          </div>
         </div>
 
         <div className="w-full bg-black/60 backdrop-blur-md border-t border-white/10 p-4">

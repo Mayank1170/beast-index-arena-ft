@@ -3,7 +3,15 @@ import { useProgram } from "./useProgram";
 import { PublicKey } from "@solana/web3.js";
 import { retryWithBackoff } from "../utils/rpcRetry";
 
-const POLL_INTERVAL = 15000; // Poll every 15 seconds to avoid rate limits
+const POLL_INTERVAL = 5000;
+const BEAST_NAMES = ["YETI", "MAPINGUARI", "ZMEY", "NAGA"];
+
+export interface BattleEvent {
+    turn: number;
+    message: string;
+    type: "attack" | "death" | "victory";
+    timestamp: number;
+}
 
 export function useCurrentBattle() {
     const program = useProgram();
@@ -11,59 +19,38 @@ export function useCurrentBattle() {
     const [battle, setBattle] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [battleLogs, setBattleLogs] = useState<BattleEvent[]>([]);
+    const [previousBattleState, setPreviousBattleState] = useState<any>(null);
 
-    // Helper to find the latest battle by searching recent battle IDs
-    const findLatestBattle = async (startFrom: number): Promise<number | null> => {
-        if (!program) return null;
+    useEffect(() => {
+        const interval = setInterval(() => {
+            const now = Date.now();
+            setBattleLogs(prev => {
+                const filtered = prev.filter(log => now - log.timestamp < 15000); // Keep logs < 15 seconds old
+                return filtered;
+            });
+        }, 1000); 
+        return () => clearInterval(interval);
+    }, []);
 
-        console.log(`🔍 Searching for battles starting from #${startFrom}...`);
-        let lastFoundBattle: number | null = null;
-
-        // Search forward up to 100 battles
-        for (let offset = 0; offset < 100; offset++) {
-            const battleId = startFrom + offset;
-            try {
-                const pda = getBattlePDA(battleId);
-                if (!pda) continue;
-
-                console.log(`  Checking battle #${battleId}...`);
-
-                const battleData = await retryWithBackoff(async () => {
-                    return await (program.account as any).battleState.fetch(pda);
-                });
-
-                lastFoundBattle = battleId;
-
-                // If this battle exists and is not over, it's the current one
-                if (!battleData.isBattleOver) {
-                    console.log(`✅ Found ACTIVE battle: #${battleId}`);
-                    return battleId;
-                }
-
-                console.log(`  Battle #${battleId} is over, checking next...`);
-                // If battle is over, continue to next
-                continue;
-            } catch (error: any) {
-                const errorMsg = error?.message || String(error);
-
-                // If account doesn't exist, we've gone too far
-                if (errorMsg.includes('Account does not exist') || errorMsg.includes('could not find account')) {
-                    if (lastFoundBattle !== null) {
-                        console.log(`🏁 Latest battle is #${lastFoundBattle} (next doesn't exist yet)`);
-                        return lastFoundBattle;
-                    }
-                    console.log(`❌ Battle #${battleId} not found`);
-                    break;
-                }
-
-                console.warn(`⚠️ Error checking battle #${battleId}:`, errorMsg);
-                // For other errors, try a few more times before giving up
-                if (offset < 5) continue;
-                break;
+    const fetchBattleIdFromAPI = async (): Promise<number | null> => {
+        try {
+            const botApiUrl = process.env.NEXT_PUBLIC_BOT_API_URL || 'http://140.238.244.166:3001';
+            const response = await fetch(`${botApiUrl}/current-battle`, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' },
+                signal: AbortSignal.timeout(5000) // 5 second timeout
+            });
+            if (response.ok) {
+                const data = await response.json();
+                return data.battleId;
+            } else {
+                console.log(`⚠️ Bot API returned ${response.status}`);
             }
+        } catch (error) {
+            console.log(`⚠️ Bot API not available:`, error);
         }
-
-        return lastFoundBattle;
+        return null;
     };
 
     // Helper to get battle PDA
@@ -79,21 +66,88 @@ export function useCurrentBattle() {
         return pda;
     };
 
-    // Helper to check if battle exists
-    const battleExists = async (battleId: number): Promise<boolean> => {
-        if (!program) return false;
-        try {
-            const pda = getBattlePDA(battleId);
-            if (!pda) return false;
-            await retryWithBackoff(async () => {
-                return await (program.account as any).battleState.fetch(pda);
-            });
-            return true;
-        } catch {
-            return false;
-        }
-    };
 
+    const generateEvents = (newState: any, oldState: any | null): BattleEvent[] => {
+        const events: BattleEvent[] = [];
+        const currentTurn = typeof newState.currentTurn?.toNumber === 'function'
+            ? newState.currentTurn.toNumber()
+            : newState.currentTurn;
+
+        if (!oldState) {
+            return events;
+        }
+
+        const attackOrder = [0, 1, 2, 3]
+            .map(i => ({ index: i, speed: newState.creatureSpd[i], alive: oldState.isAlive[i] }))
+            .filter(c => c.alive)
+            .sort((a, b) => b.speed - a.speed); 
+        const damagedCreatures: Array<{ index: number; damage: number; attacker: number | null }> = [];
+        for (let i = 0; i < 4; i++) {
+            const oldHp = oldState.creatureHp[i];
+            const newHp = newState.creatureHp[i];
+            if (newHp < oldHp) {
+                const attackerIdx = attackOrder.find(a => a.index !== i);
+                damagedCreatures.push({
+                    index: i,
+                    damage: oldHp - newHp,
+                    attacker: attackerIdx ? attackerIdx.index : null
+                });
+            }
+        }
+
+        const attackNames = [
+            "Claw Strike", "Bite", "Tail Whip", "Charge", "Slash",
+            "Stomp", "Roar Attack", "Venomous Strike", "Thunder Blow", "Ice Shard"
+        ];
+
+        damagedCreatures.forEach((damaged, idx) => {
+            const target = BEAST_NAMES[damaged.index];
+
+            let attackerIndex = damaged.attacker;
+            if (attackerIndex === null && attackOrder.length > 0) {
+                attackerIndex = attackOrder[idx % attackOrder.length].index;
+            }
+
+            const attacker = attackerIndex !== null ? BEAST_NAMES[attackerIndex] : "Unknown";
+
+            const attackName = attackNames[attackerIndex !== null ? attackerIndex % attackNames.length : 0];
+
+            events.push({
+                turn: currentTurn,
+                message: `${attacker} attacks ${target} with ${attackName}`,
+                type: "attack",
+                timestamp: Date.now() + idx
+            });
+        });
+
+        for (let i = 0; i < 4; i++) {
+            if (oldState.isAlive[i] && !newState.isAlive[i]) {
+                events.push({
+                    turn: currentTurn,
+                    message: `💀 ${BEAST_NAMES[i]} has been defeated!`,
+                    type: "death",
+                    timestamp: Date.now() + 1000
+                });
+            }
+        }
+
+        if (!oldState.isBattleOver && newState.isBattleOver) {
+            const winnerIndex = typeof newState.winner?.toNumber === 'function'
+                ? newState.winner.toNumber()
+                : newState.winner;
+
+            if (winnerIndex !== null && winnerIndex !== undefined) {
+                events.push({
+                    turn: currentTurn,
+                    message: `🏆 ${BEAST_NAMES[winnerIndex]} WINS THE BATTLE!`,
+                    type: "victory",
+                    timestamp: Date.now() + 2000
+                });
+            }
+        }
+
+        return events;
+    };
 
     // Fetch battle data
     const fetchBattle = async (battleId: number) => {
@@ -107,20 +161,23 @@ export function useCurrentBattle() {
                 return await (program.account as any).battleState.fetch(pda);
             });
 
+            const newEvents = generateEvents(battleData, previousBattleState);
+            if (newEvents.length > 0) {
+                setBattleLogs(prev => [...newEvents, ...prev].slice(0, 50)); // Keep last 50 events
+            }
+
+            setPreviousBattleState(battleData);
             setBattle(battleData);
             setError(null);
             setLoading(false);
 
-            // If current battle is over, search for the next battle
             if (battleData.isBattleOver) {
-                console.log(`🏁 Battle #${battleId} is over, checking for next battle...`);
-                const nextBattleId = await findLatestBattle(battleId + 1);
+                const nextBattleId = await fetchBattleIdFromAPI();
 
                 if (nextBattleId !== null && nextBattleId > battleId) {
-                    console.log(`✅ Jumping to battle #${nextBattleId}`);
                     setCurrentBattleId(nextBattleId);
-                } else {
-                    console.log(`⏳ No new battles yet, waiting...`);
+                    setBattleLogs([]);
+                    setPreviousBattleState(null);
                 }
             }
 
@@ -136,23 +193,16 @@ export function useCurrentBattle() {
         }
     };
 
-    // Initial setup: find the latest battle
     useEffect(() => {
         if (!program) return;
 
         const initialize = async () => {
             setLoading(true);
-            console.log(`🔍 Searching for latest battle...`);
 
-            // Start searching from a known recent battle
-            // Bot is currently around #375-380
-            const startBattleId = 375;
-            console.log(`🔍 Starting search from battle #${startBattleId}`);
-            const latestBattleId = await findLatestBattle(startBattleId);
+            const latestBattleId = await fetchBattleIdFromAPI();
 
             if (latestBattleId === null) {
-                console.log(`❌ No battles found - Bot may be starting up or between battles`);
-                setError('Waiting for battles to start...');
+                setError('Connecting to battle server...');
                 setLoading(false);
 
                 // Retry after 10 seconds
@@ -160,7 +210,6 @@ export function useCurrentBattle() {
                 return;
             }
 
-            console.log(`🎮 Latest battle: #${latestBattleId}`);
             setCurrentBattleId(latestBattleId);
             await fetchBattle(latestBattleId);
         };
@@ -168,14 +217,12 @@ export function useCurrentBattle() {
         initialize();
     }, [program]);
 
-    // Real-time polling: fetch battle data every few seconds
     useEffect(() => {
         if (!program || !currentBattleId) return;
 
         // Fetch immediately
         fetchBattle(currentBattleId);
 
-        // Set up polling interval
         const interval = setInterval(() => {
             fetchBattle(currentBattleId);
         }, POLL_INTERVAL);
@@ -188,6 +235,7 @@ export function useCurrentBattle() {
         battle,
         loading,
         error,
+        battleLogs,
         refresh: () => currentBattleId !== null && fetchBattle(currentBattleId),
     };
 }

@@ -5,6 +5,7 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { useProgram } from "../hooks/useProgram";
 import { useCurrentBattle } from "../hooks/useCurrentBattle";
 import { useUserPositions } from "../hooks/useUserPositions";
+import { useMarketData, calculateBuyCost } from "../hooks/useMarketData";
 import { PublicKey } from "@solana/web3.js";
 import * as anchor from "@coral-xyz/anchor";
 
@@ -24,12 +25,19 @@ export function MarketActions({
   const wallet = useWallet();
   const program = useProgram();
   const { currentBattleId } = useCurrentBattle();
-  const { positions } = useUserPositions(currentBattleId);
+  const { positions, refresh: refreshPositions } = useUserPositions(currentBattleId);
+  const { marketData } = useMarketData(currentBattleId);
   const [loading, setLoading] = useState(false);
-  const [amount, setAmount] = useState(0.1);
+  const [betAmountSOL, setBetAmountSOL] = useState("0.05");
 
   const userPosition = positions.find((p) => p.creatureIndex === creatureIndex);
   const userShares = userPosition?.shares || 0;
+
+  const betAmountInLamports = Math.floor(parseFloat(betAmountSOL || "0") * 1_000_000_000);
+
+  const currentPool = marketData ? marketData.pools[creatureIndex] : 0;
+  const currentShares = marketData ? marketData.shares[creatureIndex] : 0;
+  const pricePerShare = currentShares > 0 ? (currentPool / currentShares) / 1_000_000_000 : 0;
 
   const handleBuy = async () => {
     if (!wallet.connected || !program || !currentBattleId) {
@@ -47,11 +55,15 @@ export function MarketActions({
       return;
     }
 
+    const solAmount = parseFloat(betAmountSOL || "0");
+    if (solAmount < 0.01) {
+      alert("⚠️ Minimum bet is 0.01 SOL");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const lamports = Math.floor(amount * 1_000_000_000);
-
       const [battlePDA] = PublicKey.findProgramAddressSync(
         [
           Buffer.from("battle"),
@@ -85,7 +97,7 @@ export function MarketActions({
       );
 
       const tx = await program.methods
-        .placeBet(creatureIndex, new anchor.BN(lamports))
+        .placeBet(creatureIndex, new anchor.BN(betAmountInLamports))
         .accounts({
           marketState: marketPDA,
           battleState: battlePDA,
@@ -96,10 +108,18 @@ export function MarketActions({
         .rpc();
 
       console.log("✅ Bet placed! Tx:", tx);
-      alert(`✅ Bet placed on ${creatureName}!\n\nTx: ${tx.substring(0, 20)}...`);
+      alert(`✅ Bet placed on ${creatureName} for ${solAmount.toFixed(4)} SOL!\n\nTx: ${tx.substring(0, 20)}...`);
+      setBetAmountSOL("0.05");
+
+      await refreshPositions();
     } catch (error: any) {
       console.error("❌ Error:", error);
-      alert(`❌ Failed: ${error.message || error}`);
+      const errorMsg = error.message || String(error);
+      if (errorMsg.includes("BetTooSmall")) {
+        alert("❌ Minimum bet is 0.01 SOL");
+      } else {
+        alert(`❌ Failed: ${errorMsg}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -110,38 +130,52 @@ export function MarketActions({
       {/* Position Display */}
       <div className="flex justify-between text-xs text-slate-400 mb-2">
         <span>
-          POSITION: <strong className="text-white">{userShares.toLocaleString()} SHARES</strong>
+          YOUR SHARES: <strong className="text-white">{userShares.toLocaleString()}</strong>
         </span>
         {userShares > 0 && (
           <span className="text-green-400">✓ ACTIVE</span>
         )}
       </div>
 
-      {/* Amount Input */}
+      <div className="mb-2 p-2 bg-black/40 rounded border border-white/5">
+        <div className="flex justify-between text-xs">
+          <span className="text-slate-400">Price per share:</span>
+          <span className="text-green-400 font-bold">
+            {pricePerShare > 0 ? `${pricePerShare.toFixed(6)} SOL` : "Loading..."}
+          </span>
+        </div>
+        <div className="flex justify-between text-xs mt-1">
+          <span className="text-slate-400">Total shares:</span>
+          <span className="text-white">{currentShares.toLocaleString()}</span>
+        </div>
+      </div>
+
       <div className="mb-2">
+        <label className="text-xs text-slate-400 mb-1 block">BET AMOUNT (SOL)</label>
         <input
           type="number"
-          value={amount}
-          onChange={(e) => setAmount(Number(e.target.value))}
-          step={0.1}
-          min={0.01}
+          value={betAmountSOL}
+          onChange={(e) => setBetAmountSOL(e.target.value)}
+          step="0.01"
+          min="0.01"
           disabled={!isAlive || battleOver || loading}
           className="w-full bg-black/40 text-white px-3 py-2 rounded text-sm border border-white/10 focus:border-blue-500 focus:outline-none disabled:opacity-50"
-          placeholder="Amount in SOL"
+          placeholder="0.05"
         />
+        <div className="text-xs text-slate-500 mt-1">Minimum: 0.01 SOL</div>
       </div>
 
       {/* Buy Button */}
       <button
         onClick={handleBuy}
-        disabled={!isAlive || battleOver || loading || !wallet.connected}
+        disabled={!isAlive || battleOver || loading || !wallet.connected || parseFloat(betAmountSOL || "0") < 0.01}
         className="w-full flex items-center justify-center gap-2 bg-green-600/20 hover:bg-green-600 text-green-400 hover:text-white py-2 rounded font-bold text-sm border border-green-600/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {loading ? (
           <>⏳ PROCESSING...</>
         ) : (
           <>
-            📈 BUY {amount} SOL
+            💰 BET {betAmountSOL || "0"} SOL
           </>
         )}
       </button>
