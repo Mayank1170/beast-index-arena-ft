@@ -35,8 +35,8 @@ export function useCurrentBattle() {
 
     const fetchBattleIdFromAPI = async (): Promise<number | null> => {
         try {
-            const botApiUrl = process.env.NEXT_PUBLIC_BOT_API_URL || 'http://140.238.244.166:3001';
-            const response = await fetch(`${botApiUrl}/current-battle`, {
+            // Use Next.js API route to avoid mixed content issues on HTTPS
+            const response = await fetch('/api/current-battle', {
                 method: 'GET',
                 headers: { 'Content-Type': 'application/json' },
                 signal: AbortSignal.timeout(5000) // 5 second timeout
