@@ -64,6 +64,19 @@ export function MarketActions({
     setLoading(true);
 
     try {
+      const connection = program.provider.connection;
+      const balance = await connection.getBalance(wallet.publicKey!);
+      const balanceInSol = balance / 1_000_000_000;
+
+      console.log(`💰 Wallet balance: ${balanceInSol.toFixed(4)} SOL`);
+      console.log(`🎲 Bet amount: ${solAmount} SOL`);
+
+      if (balanceInSol < solAmount + 0.001) { 
+        alert(`❌ Insufficient balance!\n\nYou have: ${balanceInSol.toFixed(4)} SOL\nNeed: ${(solAmount + 0.001).toFixed(4)} SOL (including fees)`);
+        setLoading(false);
+        return;
+      }
+
       const [battlePDA] = PublicKey.findProgramAddressSync(
         [
           Buffer.from("battle"),
@@ -96,6 +109,11 @@ export function MarketActions({
         program.programId
       );
 
+      console.log('📝 Sending transaction...');
+      console.log('  Battle ID:', currentBattleId);
+      console.log('  Creature:', creatureIndex, creatureName);
+      console.log('  Amount (lamports):', betAmountInLamports);
+
       const tx = await program.methods
         .placeBet(creatureIndex, new anchor.BN(betAmountInLamports))
         .accounts({
@@ -107,18 +125,28 @@ export function MarketActions({
         })
         .rpc();
 
-      console.log("✅ Bet placed! Tx:", tx);
+      console.log('✅ Transaction confirmed:', tx);
       alert(`✅ Bet placed on ${creatureName} for ${solAmount.toFixed(4)} SOL!\n\nTx: ${tx.substring(0, 20)}...`);
       setBetAmountSOL("0.05");
 
       await refreshPositions();
     } catch (error: any) {
-      console.error("❌ Error:", error);
+      console.error("❌ Full error object:", error);
+      console.error("❌ Error name:", error.name);
+      console.error("❌ Error message:", error.message);
+
       const errorMsg = error.message || String(error);
-      if (errorMsg.includes("BetTooSmall")) {
+
+      if (errorMsg.includes("User rejected")) {
+        alert("❌ Transaction cancelled - you rejected the signature request");
+      } else if (errorMsg.includes("BetTooSmall")) {
         alert("❌ Minimum bet is 0.01 SOL");
+      } else if (errorMsg.includes("insufficient")) {
+        alert("❌ Insufficient SOL in wallet");
+      } else if (errorMsg.includes("Unexpected error")) {
+        alert("❌ Wallet error - please make sure:\n\n1. You have enough SOL in your wallet\n2. Your wallet is unlocked\n3. Try refreshing the page");
       } else {
-        alert(`❌ Failed: ${errorMsg}`);
+        alert(`❌ Transaction failed:\n\n${errorMsg.substring(0, 200)}`);
       }
     } finally {
       setLoading(false);

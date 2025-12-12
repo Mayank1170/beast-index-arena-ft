@@ -6,17 +6,20 @@ interface BattleLogsProps {
 }
 
 export function BattleLogs({ logs }: BattleLogsProps) {
-  if (logs.length === 0) {
-    return null; 
-  }
+  console.log('🎮 BattleLogs component:', logs.length, 'logs');
 
   return (
-    <div className="bg-black/80 backdrop-blur-md border border-white/20 rounded-lg p-3 max-h-64 overflow-y-auto shadow-2xl">
+    <div className="bg-black/80 backdrop-blur-md border border-white/20 rounded-lg p-3 max-h-96 overflow-y-auto shadow-2xl">
       <h3 className="text-xs font-black text-white mb-2 tracking-widest sticky top-0 bg-black/90 pb-1 backdrop-blur-md z-10">
-        ⚔️ BATTLE LOG
+        ⚔️ BATTLE LOG ({logs.length} events)
       </h3>
-      <div className="space-y-1.5">
-        {logs.slice(0, 15).map((event, idx) => (
+      {logs.length === 0 ? (
+        <div className="text-center text-slate-400 text-xs py-4">
+          Waiting for battle events...
+        </div>
+      ) : (
+        <div className="space-y-1.5">
+          {logs.slice(0, 50).map((event, idx) => (
           <div
             key={`${event.turn}-${event.timestamp}-${idx}`}
             className={`text-xs p-2 rounded border-l-3 transition-all duration-200 ${
@@ -32,8 +35,9 @@ export function BattleLogs({ logs }: BattleLogsProps) {
               <span className="text-[11px] leading-relaxed flex-1">{event.message}</span>
             </div>
           </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -25,10 +25,6 @@ export function UnclaimedWinnings() {
         setClaiming(claimKey);
 
         try {
-            console.log('Claiming winnings...');
-            console.log('Battle ID:', battleId);
-            console.log('Creature:', creatureIndex);
-
             const [battlePDA] = PublicKey.findProgramAddressSync(
                 [
                     Buffer.from('battle'),
@@ -47,8 +43,6 @@ export function UnclaimedWinnings() {
 
             const positionPDA = new PublicKey(pda);
 
-            console.log('Calling claim_winnings...');
-
             const tx = await program.methods
                 .claimWinnings()
                 .accounts({
@@ -60,7 +54,6 @@ export function UnclaimedWinnings() {
                 })
                 .rpc();
 
-            console.log('Claimed! Tx:', tx);
             alert(`✅ Winnings claimed from Battle #${battleId}!\n\nTx: ${tx.substring(0, 20)}...`);
 
             // Refresh the list

@@ -22,16 +22,6 @@ export function useCurrentBattle() {
     const [battleLogs, setBattleLogs] = useState<BattleEvent[]>([]);
     const [previousBattleState, setPreviousBattleState] = useState<any>(null);
 
-    useEffect(() => {
-        const interval = setInterval(() => {
-            const now = Date.now();
-            setBattleLogs(prev => {
-                const filtered = prev.filter(log => now - log.timestamp < 15000); // Keep logs < 15 seconds old
-                return filtered;
-            });
-        }, 1000); 
-        return () => clearInterval(interval);
-    }, []);
 
     const fetchBattleIdFromAPI = async (): Promise<number | null> => {
         try {
@@ -44,11 +34,8 @@ export function useCurrentBattle() {
             if (response.ok) {
                 const data = await response.json();
                 return data.battleId;
-            } else {
-                console.log(`⚠️ Bot API returned ${response.status}`);
             }
         } catch (error) {
-            console.log(`⚠️ Bot API not available:`, error);
         }
         return null;
     };
@@ -73,52 +60,127 @@ export function useCurrentBattle() {
             ? newState.currentTurn.toNumber()
             : newState.currentTurn;
 
+        console.log('🔍 generateEvents called');
+        console.log('  New state turn:', currentTurn);
+        console.log('  Old state exists:', !!oldState);
+
         if (!oldState) {
+            console.log('  ⚠️ No old state, returning empty events');
             return events;
         }
 
-        const attackOrder = [0, 1, 2, 3]
-            .map(i => ({ index: i, speed: newState.creatureSpd[i], alive: oldState.isAlive[i] }))
-            .filter(c => c.alive)
-            .sort((a, b) => b.speed - a.speed); 
-        const damagedCreatures: Array<{ index: number; damage: number; attacker: number | null }> = [];
-        for (let i = 0; i < 4; i++) {
-            const oldHp = oldState.creatureHp[i];
-            const newHp = newState.creatureHp[i];
-            if (newHp < oldHp) {
-                const attackerIdx = attackOrder.find(a => a.index !== i);
-                damagedCreatures.push({
-                    index: i,
-                    damage: oldHp - newHp,
-                    attacker: attackerIdx ? attackerIdx.index : null
-                });
+        const oldTurn = typeof oldState.currentTurn?.toNumber === 'function'
+            ? oldState.currentTurn.toNumber()
+            : oldState.currentTurn;
+
+        console.log('  Old turn:', oldTurn);
+        console.log('  Turn changed:', currentTurn > oldTurn);
+
+        const turnChanged = currentTurn > oldTurn;
+
+        if (!turnChanged) {
+            console.log('  ⏸️ No turn change, checking deaths/victory only');
+            for (let i = 0; i < 4; i++) {
+                if (oldState.isAlive[i] && !newState.isAlive[i]) {
+                    console.log(`  💀 Creature ${i} died`);
+                    events.push({
+                        turn: currentTurn,
+                        message: `💀 ${BEAST_NAMES[i]} has been defeated!`,
+                        type: "death",
+                        timestamp: Date.now()
+                    });
+                }
             }
+
+            if (!oldState.isBattleOver && newState.isBattleOver) {
+                const winnerIndex = typeof newState.winner?.toNumber === 'function'
+                    ? newState.winner.toNumber()
+                    : newState.winner;
+
+                console.log(`  🏆 Battle over, winner: ${winnerIndex}`);
+
+                if (winnerIndex !== null && winnerIndex !== undefined) {
+                    events.push({
+                        turn: currentTurn,
+                        message: `🏆 ${BEAST_NAMES[winnerIndex]} WINS THE BATTLE!`,
+                        type: "victory",
+                        timestamp: Date.now() + 1000
+                    });
+                }
+            }
+
+            console.log(`  ✅ Returning ${events.length} events (no turn change)`);
+            return events;
         }
+
+        console.log('  ⚔️ Turn changed! Generating attack logs...');
 
         const attackNames = [
             "Claw Strike", "Bite", "Tail Whip", "Charge", "Slash",
             "Stomp", "Roar Attack", "Venomous Strike", "Thunder Blow", "Ice Shard"
         ];
 
-        damagedCreatures.forEach((damaged, idx) => {
-            const target = BEAST_NAMES[damaged.index];
+        const aliveCreatures = [0, 1, 2, 3]
+            .filter(i => oldState.isAlive[i])
+            .map(i => ({ index: i, speed: newState.creatureSpd[i] }))
+            .sort((a, b) => b.speed - a.speed);
 
-            let attackerIndex = damaged.attacker;
-            if (attackerIndex === null && attackOrder.length > 0) {
-                attackerIndex = attackOrder[idx % attackOrder.length].index;
+        console.log('  Alive creatures:', aliveCreatures.map(c => c.index));
+
+        if (aliveCreatures.length === 0) {
+            console.log('  ⚠️ No alive creatures, returning empty');
+            return events;
+        }
+
+        const damagedCreatures: Array<{ index: number; damage: number }> = [];
+        for (let i = 0; i < 4; i++) {
+            const oldHp = oldState.creatureHp[i];
+            const newHp = newState.creatureHp[i];
+            console.log(`  Creature ${i}: HP ${oldHp} → ${newHp}`);
+            if (newHp < oldHp && oldState.isAlive[i]) {
+                console.log(`    💥 Took ${oldHp - newHp} damage!`);
+                damagedCreatures.push({
+                    index: i,
+                    damage: oldHp - newHp
+                });
             }
+        }
 
-            const attacker = attackerIndex !== null ? BEAST_NAMES[attackerIndex] : "Unknown";
+        console.log('  Total damaged creatures:', damagedCreatures.length);
 
-            const attackName = attackNames[attackerIndex !== null ? attackerIndex % attackNames.length : 0];
+        if (damagedCreatures.length > 0) {
+            console.log('  📝 Creating attack logs for damaged creatures...');
+            damagedCreatures.forEach((damaged, idx) => {
+                const target = BEAST_NAMES[damaged.index];
 
+                const possibleAttackers = aliveCreatures.filter(c => c.index !== damaged.index);
+                const attackerIndex = possibleAttackers.length > 0
+                    ? possibleAttackers[idx % possibleAttackers.length].index
+                    : aliveCreatures[0].index;
+
+                const attacker = BEAST_NAMES[attackerIndex];
+                const attackName = attackNames[(attackerIndex + currentTurn) % attackNames.length];
+
+                console.log(`    ⚔️ ${attacker} → ${target}: ${attackName} (-${damaged.damage} HP)`);
+
+                events.push({
+                    turn: currentTurn,
+                    message: `${attacker} attacks ${target} with ${attackName} (-${damaged.damage} HP)`,
+                    type: "attack",
+                    timestamp: Date.now() + (idx * 100)
+                });
+            });
+        } else if (aliveCreatures.length >= 2) {
+            console.log('  ⚠️ No damage detected, showing miss');
+            const attacker = aliveCreatures[0];
+            const target = aliveCreatures[1];
             events.push({
                 turn: currentTurn,
-                message: `${attacker} attacks ${target} with ${attackName}`,
+                message: `${BEAST_NAMES[attacker.index]} attacks ${BEAST_NAMES[target.index]} but misses!`,
                 type: "attack",
-                timestamp: Date.now() + idx
+                timestamp: Date.now()
             });
-        });
+        }
 
         for (let i = 0; i < 4; i++) {
             if (oldState.isAlive[i] && !newState.isAlive[i]) {
@@ -136,6 +198,8 @@ export function useCurrentBattle() {
                 ? newState.winner.toNumber()
                 : newState.winner;
 
+            console.log('  🏆 Battle ended, winner:', winnerIndex);
+
             if (winnerIndex !== null && winnerIndex !== undefined) {
                 events.push({
                     turn: currentTurn,
@@ -146,6 +210,7 @@ export function useCurrentBattle() {
             }
         }
 
+        console.log(`  ✅ Generated ${events.length} total events`);
         return events;
     };
 
@@ -162,8 +227,13 @@ export function useCurrentBattle() {
             });
 
             const newEvents = generateEvents(battleData, previousBattleState);
+            console.log('🎯 Generated events:', newEvents.length, newEvents);
             if (newEvents.length > 0) {
-                setBattleLogs(prev => [...newEvents, ...prev].slice(0, 50)); // Keep last 50 events
+                setBattleLogs(prev => {
+                    const updated = [...newEvents, ...prev].slice(0, 100); // Keep more logs
+                    console.log('📊 Battle logs updated. Total:', updated.length);
+                    return updated;
+                });
             }
 
             setPreviousBattleState(battleData);
@@ -175,21 +245,21 @@ export function useCurrentBattle() {
                 const nextBattleId = await fetchBattleIdFromAPI();
 
                 if (nextBattleId !== null && nextBattleId > battleId) {
+                    console.log('🔄 New battle starting, clearing old logs');
                     setCurrentBattleId(nextBattleId);
-                    setBattleLogs([]);
+                    setBattleLogs([]); 
                     setPreviousBattleState(null);
                 }
             }
 
         } catch (err: any) {
             const errorMsg = err?.message || String(err);
-            console.error('Error fetching battle:', errorMsg);
 
-            // Only set error state for non-account-not-found errors
             if (!errorMsg.includes('Account does not exist')) {
+                console.error('Error fetching battle:', errorMsg);
                 setError(errorMsg);
+                setLoading(false);
             }
-            setLoading(false);
         }
     };
 
@@ -211,7 +281,21 @@ export function useCurrentBattle() {
             }
 
             setCurrentBattleId(latestBattleId);
-            await fetchBattle(latestBattleId);
+
+            const pda = getBattlePDA(latestBattleId);
+            if (pda) {
+                try {
+                    await (program.account as any).battleState.fetch(pda);
+                    await fetchBattle(latestBattleId);
+                } catch (err: any) {
+                    if (err?.message?.includes('Account does not exist')) {
+                        setBattle(null);
+                        setLoading(false);
+                    } else {
+                        throw err;
+                    }
+                }
+            }
         };
 
         initialize();

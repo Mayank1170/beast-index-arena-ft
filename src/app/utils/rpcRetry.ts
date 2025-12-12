@@ -22,8 +22,7 @@ export async function retryWithBackoff<T>(
             error?.message?.includes('could not find account');
 
         if (isAccountNotFound) {
-            console.warn('Account not found:', error?.message);
-            throw error; // Don't retry for account not found errors
+            throw error;
         }
 
         if (retries > 0 && isRateLimit) {

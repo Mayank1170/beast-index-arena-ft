@@ -7,55 +7,23 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 import { retryWithBackoff } from "../utils/rpcRetry";
 import { useCurrentBattle } from "../hooks/useCurrentBattle";
+import { useUserPositions } from "../hooks/useUserPositions";
 
 export function UserPosition() {
     const program = useProgram();
     const wallet = useWallet();
     const { currentBattleId } = useCurrentBattle();
-    const [positions, setPositions] = useState<any>([]);
+    const { positions: userPositions, refresh: refreshPositions } = useUserPositions(currentBattleId);
     const [selling, setSelling] = useState(false);
     const [battleOver, setBattleOver] = useState(false);
     const [winner, setWinner] = useState<number | null>(null);
     const [claiming, setClaiming] = useState(false);
     const [market, setMarket] = useState<any>(null);
 
-    const fetchUserPositions = async () => {
-        if (!program || !wallet.publicKey || !currentBattleId) return;
+    const fetchBattleAndMarketData = async () => {
+        if (!program || !currentBattleId) return;
 
         const battleId = currentBattleId;
-        const foundPositions = [];
-
-        for (let i = 0; i < 4; i++) {
-            try {
-                const [positionPDA] = PublicKey.findProgramAddressSync(
-                    [
-                        Buffer.from('position'),
-                        Buffer.from(new Uint8Array(new BigInt64Array([BigInt(battleId)]).buffer)),
-                        wallet.publicKey.toBuffer(),
-                        Buffer.from([i])
-                    ],
-                    program.programId
-                );
-                const position = await (program.account as any).userPosition.fetch(positionPDA);
-
-                console.log(`✅ Found position for creature ${i}:`, position.amount.toNumber(), 'shares');
-
-                foundPositions.push({
-                    creature: i,
-                    shares: position.amount.toNumber(),
-                    claimed: position.claimed,
-                    pda: positionPDA
-                });
-            } catch (error: any) {
-                // This is normal - user may not have positions for all creatures
-                const errorMsg = error?.message || String(error);
-                if (!errorMsg.includes('Account does not exist')) {
-                    console.warn(`⚠️ Error checking position for creature ${i}:`, errorMsg);
-                }
-            }
-        }
-        console.log('Total positions found:', foundPositions);
-        setPositions(foundPositions);
 
         try {
             const [battlePDA] = PublicKey.findProgramAddressSync(
@@ -69,13 +37,13 @@ export function UserPosition() {
                 return await (program.account as any).battleState.fetch(battlePDA);
             });
 
-            console.log('Battle status:', battleData.isBattleOver);
-            console.log('Winner:', battleData.winner);
-
             setBattleOver(battleData.isBattleOver);
             setWinner(battleData.winner);
-        } catch (error) {
-            console.error('Error fetching battle:', error);
+        } catch (error: any) {
+            const errorMsg = error?.message || String(error);
+            if (!errorMsg.includes('Account does not exist')) {
+                console.error('Error fetching battle:', error);
+            }
         }
 
         try {
@@ -90,10 +58,12 @@ export function UserPosition() {
             const marketData = await retryWithBackoff(async () => {
                 return await (program.account as any).marketState.fetch(marketPDA);
             });
-            console.log('Market data:', marketData);
             setMarket(marketData);
-        } catch (error) {
-            console.error('Error fetching market:', error);
+        } catch (error: any) {
+            const errorMsg = error?.message || String(error);
+            if (!errorMsg.includes('Account does not exist')) {
+                console.error('Error fetching market:', error);
+            }
         }
     };
 
@@ -102,9 +72,6 @@ export function UserPosition() {
         setSelling(true);
         try {
             const battleId = currentBattleId;
-            console.log('Selling shares...');
-            console.log('  Creature:', creature);
-            console.log('  Shares:', shares);
 
             const [battlePDA] = PublicKey.findProgramAddressSync(
                 [
@@ -122,7 +89,6 @@ export function UserPosition() {
                 program.programId,
             );
 
-            console.log('Calling sell_shares...');
             const tx = await program.methods.sellShares(new anchor.BN(shares)).accounts({
                 battleState: battlePDA,
                 marketState: marketPDA,
@@ -131,10 +97,9 @@ export function UserPosition() {
                 systemProgram: anchor.web3.SystemProgram.programId,
             }).rpc();
 
-            console.log('Sold! Tx:', tx);
             alert('Shares sold!\n\nTx: ' + tx);
 
-            await fetchUserPositions();
+            await refreshPositions();
 
         } catch (error) {
             console.error('Error:', error);
@@ -152,9 +117,6 @@ export function UserPosition() {
         try {
             const battleId = currentBattleId;
 
-            console.log('Claiming winnings...');
-            console.log('Creature:', creature);
-
             const [battlePDA] = PublicKey.findProgramAddressSync(
                 [
                     Buffer.from('battle'),
@@ -171,8 +133,6 @@ export function UserPosition() {
                 program.programId
             );
 
-            console.log('Calling claim_winnings...');
-
             const tx = await program.methods
                 .claimWinnings()
                 .accounts({
@@ -184,10 +144,9 @@ export function UserPosition() {
                 })
                 .rpc();
 
-            console.log('Claimed! Tx:', tx);
             alert('Winnings claimed!\n\nTx: ' + tx);
 
-            await fetchUserPositions();
+            await refreshPositions();
 
         } catch (error) {
             console.error('Error:', error);
@@ -217,8 +176,14 @@ export function UserPosition() {
     };
 
     useEffect(() => {
-        fetchUserPositions();
-    }, [program, wallet.publicKey, currentBattleId]);
+        fetchBattleAndMarketData();
+
+        const interval = setInterval(() => {
+            fetchBattleAndMarketData();
+        }, 5000);
+
+        return () => clearInterval(interval);
+    }, [program, currentBattleId]);
 
     return (
         <div className="bg-gray-800 rounded-lg p-6">
@@ -232,18 +197,20 @@ export function UserPosition() {
                 </div>
             )}
 
-            {positions.length > 0 ? (
+            {userPositions.length > 0 ? (
                 <div className="space-y-3">
-                    {positions.map((pos: any) => {
-                        const isWinner = battleOver && winner === pos.creature;
-                        const isLoser = battleOver && winner !== pos.creature;
+                    {userPositions.map((pos: any) => {
+                        const isWinner = battleOver && winner === pos.creatureIndex;
+                        const isLoser = battleOver && winner !== pos.creatureIndex;
+
+                        const positionPDA = new PublicKey(pos.pda);
 
                         return (
-                            <div key={pos.creature} className="bg-gray-700 p-4 rounded">
+                            <div key={pos.creatureIndex} className="bg-gray-700 p-4 rounded">
                                 <div className="flex justify-between items-center">
                                     <div>
                                         <div className="text-white font-bold">
-                                            Creature {pos.creature}
+                                            Creature {pos.creatureIndex}
                                             {isWinner && " 👑 WINNER"}
                                             {isLoser && " 💀 ELIMINATED"}
                                         </div>
@@ -252,7 +219,7 @@ export function UserPosition() {
                                         </div>
                                         {isWinner && !pos.claimed && (
                                             <div className="text-sm text-green-400">
-                                                Estimated Payout: {calculatePayout(pos.shares, pos.creature).toFixed(4)} SOL
+                                                Estimated Payout: {calculatePayout(pos.shares, pos.creatureIndex).toFixed(4)} SOL
                                             </div>
                                         )}
                                         {isLoser && (
@@ -271,7 +238,7 @@ export function UserPosition() {
                                         {!battleOver ? (
                                             <>
                                                 <button
-                                                    onClick={() => handleSell(pos.creature, pos.pda, Math.floor(pos.shares / 2))}
+                                                    onClick={() => handleSell(pos.creatureIndex, positionPDA, Math.floor(pos.shares / 2))}
                                                     disabled={selling}
                                                     className="bg-orange-600 hover:bg-orange-700 disabled:bg-gray-600 text-white px-4 py-2 rounded"
                                                 >
@@ -279,7 +246,7 @@ export function UserPosition() {
                                                 </button>
 
                                                 <button
-                                                    onClick={() => handleSell(pos.creature, pos.pda, pos.shares)}
+                                                    onClick={() => handleSell(pos.creatureIndex, positionPDA, pos.shares)}
                                                     disabled={selling}
                                                     className="bg-red-600 hover:bg-red-700 disabled:bg-gray-600 text-white px-4 py-2 rounded"
                                                 >
@@ -290,7 +257,7 @@ export function UserPosition() {
                                             <>
                                                 {isWinner && !pos.claimed && (
                                                     <button
-                                                        onClick={() => handleClaim(pos.creature, pos.pda)}
+                                                        onClick={() => handleClaim(pos.creatureIndex, positionPDA)}
                                                         disabled={claiming}
                                                         className="bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white px-4 py-2 rounded"
                                                     >
