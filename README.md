@@ -1,36 +1,62 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Beast Index Arena - Frontend
 
-## Getting Started
+A real-time blockchain battle arena where players bet on mythical creatures fighting in turn-based combat. Built on Solana devnet.
 
-First, run the development server:
+## Overview
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+This is the frontend application for Beast Index Arena, a decentralized betting platform where users can:
+- Watch live battles between four mythical creatures (Yeti, Mapinguari, Zmey, and Naga)
+- Place bets on creatures during active battles
+- Track positions and claim winnings
+- View real-time battle logs and creature stats
+
+## Tech Stack
+
+- **Framework**: Next.js 15 with App Router
+- **Blockchain**: Solana (Anchor framework)
+- **Wallet**: Solana Wallet Adapter
+- **Styling**: Tailwind CSS
+- **Language**: TypeScript
+
+## How It Works
+
+1. **Connect Wallet**: Connect your Solana wallet using the button in the top right
+2. **Watch Battles**: Each battle lasts until only one creature survives
+3. **Place Bets**: Bet on any alive creature during an active battle (minimum 0.01 SOL)
+4. **Track Positions**: View your active positions in the "Your Positions" section
+5. **Claim Winnings**: When your creature wins, claim your share of the prize pool
+
+## Features
+
+- Real-time battle updates (5-second polling)
+- Live battle logs showing attacks and eliminations
+- Automatic position updates after transactions
+- Responsive design for mobile and desktop
+- Battle history and unclaimed winnings tracker
+
+## Project Structure
+
+```
+src/
+├── app/
+│   ├── components/     # React components
+│   ├── hooks/          # Custom React hooks
+│   ├── utils/          # Utility functions
+│   ├── idl/            # Anchor program IDL
+│   └── api/            # Next.js API routes
+└── public/             # Static assets
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Development
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+The application polls the blockchain every 5 seconds to fetch:
+- Current battle state
+- Creature HP and status
+- User positions
+- Market data
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+All transactions are signed through your connected wallet and confirmed on Solana devnet.
 
-## Learn More
+## License
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+MIT
