@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useProgram } from "./useProgram";
 import { PublicKey } from "@solana/web3.js";
 import { retryWithBackoff } from "../utils/rpcRetry";
@@ -20,7 +20,7 @@ export function useCurrentBattle() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [battleLogs, setBattleLogs] = useState<BattleEvent[]>([]);
-    const [previousBattleState, setPreviousBattleState] = useState<any>(null);
+    const previousBattleStateRef = useRef<any>(null);
 
 
     const fetchBattleIdFromAPI = async (): Promise<number | null> => {
@@ -226,7 +226,7 @@ export function useCurrentBattle() {
                 return await (program.account as any).battleState.fetch(pda);
             });
 
-            const newEvents = generateEvents(battleData, previousBattleState);
+            const newEvents = generateEvents(battleData, previousBattleStateRef.current);
             console.log('🎯 Generated events:', newEvents.length, newEvents);
             if (newEvents.length > 0) {
                 setBattleLogs(prev => {
@@ -236,7 +236,7 @@ export function useCurrentBattle() {
                 });
             }
 
-            setPreviousBattleState(battleData);
+            previousBattleStateRef.current = battleData;
             setBattle(battleData);
             setError(null);
             setLoading(false);
@@ -247,8 +247,8 @@ export function useCurrentBattle() {
                 if (nextBattleId !== null && nextBattleId > battleId) {
                     console.log('🔄 New battle starting, clearing old logs');
                     setCurrentBattleId(nextBattleId);
-                    setBattleLogs([]); 
-                    setPreviousBattleState(null);
+                    setBattleLogs([]);
+                    previousBattleStateRef.current = null;
                 }
             }
 
